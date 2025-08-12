@@ -10,3 +10,6 @@ class Point(AnnotationObject):
     @property
     def label(self) -> str | None:
         return getattr(self.group, "name", None)
+
+
+
