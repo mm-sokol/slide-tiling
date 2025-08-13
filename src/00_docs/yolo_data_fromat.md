@@ -6,7 +6,7 @@ YOLO data format
 |Aktualizacja|12.08.25    |msokol      |
 
 ## Drzewo folderów
-<!-- ```bash
+```bash
 dataset/
 ├───train/
 │   ├───images/
@@ -17,8 +17,8 @@ dataset/
 └───valid/
     ├───images/
     └───labels/
-``` -->
-
+```
+<!-- 
 ```bash
 dataset/
 ├───labels/
@@ -28,7 +28,7 @@ dataset/
 │   ├───train/
 │   └───test/
 └───annotations/
-```
+``` -->
 
 ## Pliki adnotacji
 

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from asap_loader.annotation.objects.annotation_object import AnnotationObject
 from asap_loader.annotation.objects.point import Point
-from shapely import geometry
+from shapely import geometry, centroid
 
 
 @dataclass
@@ -16,3 +16,8 @@ class Polygon(AnnotationObject):
         geo_point = geometry.Point(point.x, point.y)
         geo_polygon = geometry.Polygon(self.verticies)
         return geo_point.within(geo_polygon)
+
+    def centeroid(self):
+        geo_polygon = geometry.Polygon(self.verticies)
+        center = centroid(geo_polygon)
+        return center.x, center.y
