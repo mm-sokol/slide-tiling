@@ -52,10 +52,16 @@ def get_annotation_groups(xml_root, selected_group_names=None) -> dict:
 def get_group_members(xml_root, group_dict, verbose=False) -> dict:
 
     for annotation in xml_root.find("./Annotations"):
+        class_name = annotation.attrib["PartOfGroup"]
+        if class_name not in group_dict.keys():
+            if verbose:
+                print(f"Omitting {class_name}")
+            continue
+
         if annotation.attrib["Type"] == "Dot":
             coord = annotation.find("./Coordinates/Coordinate")
             point = Point(
-                group=group_dict[annotation.attrib["PartOfGroup"]],
+                group=group_dict[class_name],
                 name=annotation.attrib["Name"],
                 color=annotation.attrib["Color"],
                 x=float(coord.attrib["X"]),
@@ -70,7 +76,7 @@ def get_group_members(xml_root, group_dict, verbose=False) -> dict:
                 (float(coord.attrib["X"]), float(coord.attrib["Y"])) for coord in coords
             ]
             polygon = Polygon(
-                group=group_dict[annotation.attrib["PartOfGroup"]],
+                group=group_dict[class_name],
                 name=annotation.attrib["Name"],
                 color=annotation.attrib["Color"],
                 verticies=vertices,
@@ -87,7 +93,7 @@ def get_group_members(xml_root, group_dict, verbose=False) -> dict:
             xs, ys = zip(*vertices)
 
             rect = Rectangle(
-                group=group_dict[annotation.attrib["PartOfGroup"]],
+                group=group_dict[class_name],
                 name=annotation.attrib["Name"],
                 color=annotation.attrib["Color"],
                 x_max=max(xs),
@@ -158,17 +164,19 @@ def get_tile_images_from_wsi(
     root = tree.getroot()
 
     annotation_groups = get_annotation_groups(root, selected_classes)
+    # print(annotation_groups)
     annotation_groups = get_group_members(root, annotation_groups)
 
     slide = Slide(mrxs_path, "")
 
     all_images = []
-
+    images = []
     for group in annotation_groups.values():
         images = get_images_for_group(slide, group, *bbox_size, wsi_level=wsi_level)
         all_images += images
 
     return images
+    # return []
 
 
 def save_tile_images_from_wsi(
@@ -202,27 +210,28 @@ def save_tile_images_from_wsi(
 def save_tile_images(
     train_wsi_names: list[str],
     test_wsi_names: list[str],
-    src_dir,
-    dest_dir,
+    data_dir,
+    out_dir,
     selected_classes,
     bbox_size,
     show_n=None,
 ):
-    src_path = Path(src_dir)
+    src_path = Path(data_dir)
     sections = ["test", "train"]
     wsi_names = {"test": train_wsi_names, "train": test_wsi_names}
 
     for section in sections:
+        for class_name in selected_classes:
+            section_dest_path = Path(out_dir, section, class_name)
+            section_dest_path.mkdir(exist_ok=True, parents=True)
 
-        section_dest_path = Path(dest_dir, section)
-        section_dest_path.mkdir(exist_ok=True)
-
-        for wsi_name in wsi_names[section]:
-            save_tile_images_from_wsi(
-                wsi_name,
-                src_path,
-                section_dest_path,
-                selected_classes,
-                bbox_size,
-                show_n=show_n,
-            )
+            for wsi_name in wsi_names[section]:
+                print(f"{wsi_name} {section} class: {class_name}")
+                save_tile_images_from_wsi(
+                    wsi_name,
+                    src_path,
+                    section_dest_path,
+                    selected_classes=[class_name, class_name.lower()],
+                    bbox_size=bbox_size,
+                    show_n=show_n,
+                )
