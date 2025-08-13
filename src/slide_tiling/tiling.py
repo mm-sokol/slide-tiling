@@ -1,7 +1,6 @@
-OPENSLIDE_PATH = r"C:\Users\MS\openslide-bin-4.0.0.8-windows-x64\bin"
+OPENSLIDE_PATH = "C:\\Users\\MS\\openslide-bin-4.0.0.8-windows-x64\\bin"
 
 import os
-from pathlib import Path
 
 if hasattr(os, "add_dll_directory"):
     # Windows
@@ -23,9 +22,10 @@ from pathlib import Path
 from os import listdir
 from histolab.slide import Slide, CoordinatePair
 from PIL.Image import Image
+from IPython.display import display
 
 
-def get_annotation_groups(xml_root, selected_group_names=None):
+def get_annotation_groups(xml_root, selected_group_names=None) -> dict:
     groups = []
 
     for child in xml_root.find("./AnnotationGroups"):
@@ -49,7 +49,7 @@ def get_annotation_groups(xml_root, selected_group_names=None):
     return group_dict
 
 
-def get_group_members(xml_root, group_dict, verbose=False):
+def get_group_members(xml_root, group_dict, verbose=False) -> dict:
 
     for annotation in xml_root.find("./Annotations"):
         if annotation.attrib["Type"] == "Dot":
@@ -104,17 +104,16 @@ def get_group_members(xml_root, group_dict, verbose=False):
     return group_dict
 
 
-def get_images_for_group_members(mrxs_file, group, width_px, height_px, wsi_level=0):
+def get_images_for_group(slide, group, width_px, height_px, wsi_level):
 
-    slide = Slide(mrxs_file, "")
+    images = []
     downsample_ratio = (
         slide.level_dimensions()[0] / slide.level_dimensions(level=wsi_level)[0]
     )
 
-    images = []
     for member in group.members:
 
-        if isinstance(member, Polygon):
+        if isinstance(member, Polygon) or isinstance(member, Rectangle):
             center = member.centeroid()
         elif isinstance(member, Point):
             center = (member.x, member.y)
@@ -145,3 +144,85 @@ def get_images_for_group_members(mrxs_file, group, width_px, height_px, wsi_leve
         images.append(image)
 
     return images
+
+
+def get_tile_images_from_wsi(
+    xml_path: Path,
+    mrxs_path: Path,
+    selected_classes: set,
+    bbox_size: tuple[int],
+    wsi_level=0,
+):
+
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+
+    annotation_groups = get_annotation_groups(root, selected_classes)
+    annotation_groups = get_group_members(root, annotation_groups)
+
+    slide = Slide(mrxs_path, "")
+
+    all_images = []
+
+    for group in annotation_groups.values():
+        images = get_images_for_group(slide, group, *bbox_size, wsi_level=wsi_level)
+        all_images += images
+
+    return images
+
+
+def save_tile_images_from_wsi(
+    wsi_name: str,
+    src_path: Path,
+    dest_path: Path,
+    selected_classes: list,
+    bbox_size: tuple[int],
+    wsi_level=0,
+    infix="TILE",
+    ext="png",
+    show_n=None,
+):
+
+    xml_path = src_path / Path(f"{wsi_name}.xml")
+    mrxs_path = src_path / Path(f"{wsi_name}.mrxs")
+
+    images = get_tile_images_from_wsi(
+        xml_path, mrxs_path, selected_classes, bbox_size, wsi_level
+    )
+
+    for i, image in enumerate(images):
+        filename = dest_path / Path(f"{wsi_name}_{infix}_{i}.{ext}")
+        image.save(filename)
+
+        if isinstance(show_n, int) and show_n > 0:
+            display(image)
+            show_n = show_n - 1
+
+
+def save_tile_images(
+    train_wsi_names: list[str],
+    test_wsi_names: list[str],
+    src_dir,
+    dest_dir,
+    selected_classes,
+    bbox_size,
+    show_n=None,
+):
+    src_path = Path(src_dir)
+    sections = ["test", "train"]
+    wsi_names = {"test": train_wsi_names, "train": test_wsi_names}
+
+    for section in sections:
+
+        section_dest_path = Path(dest_dir, section)
+        section_dest_path.mkdir(exist_ok=True)
+
+        for wsi_name in wsi_names[section]:
+            save_tile_images_from_wsi(
+                wsi_name,
+                src_path,
+                section_dest_path,
+                selected_classes,
+                bbox_size,
+                show_n=show_n,
+            )

@@ -1,5 +1,4 @@
-OPENSLIDE_PATH = r"C:\Users\MS\openslide-bin-4.0.0.8-windows-x64\bin"
-
+OPENSLIDE_PATH = "C:\\Users\\MS\\openslide-bin-4.0.0.8-windows-x64\\bin"
 import os
 from pathlib import Path
 
@@ -21,7 +20,6 @@ import xml.etree.ElementTree as ET
 from asap_loader.annotation.objects.rectangle import Rectangle
 from asap_loader.annotation.objects.group import Group
 from asap_loader.annotation.objects.annotation_object import AnnotationObject
-from pathlib import Path
 from pandas import DataFrame
 
 
@@ -118,7 +116,7 @@ def save_images_from_slide(slide_name, images, dest_dir, group, infix="ROI", ext
 
     for i, (image, rect) in enumerate(zip(images, group.members)):
         filename = Path(dest_dir, f"{slide_name}_{infix}_{i}.{ext}")
-        # image.save(filename)
+        image.save(filename)
 
         info = {
             "slide": slide_name,
