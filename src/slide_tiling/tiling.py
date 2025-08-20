@@ -21,7 +21,7 @@ from asap_loader.annotation.objects.group import Group
 from pathlib import Path
 from os import listdir
 from histolab.slide import Slide, CoordinatePair
-from PIL.Image import Image
+from PIL import Image
 from IPython.display import display
 
 
@@ -51,11 +51,13 @@ def get_annotation_groups(xml_root, selected_group_names=None) -> dict:
 
 def get_group_members(xml_root, group_dict, verbose=False) -> dict:
 
-    for annotation in xml_root.find("./Annotations"):
-        class_name = annotation.attrib["PartOfGroup"]
-        if class_name not in group_dict.keys():
-            if verbose:
-                print(f"Omitting {class_name}")
+    for annotation in xml_root.findall(f"./Annotations/Annotation"):
+
+        class_name = annotation.attrib.get("PartOfGroup")
+
+        if class_name not in group_dict:
+            # print(f"{class_name} not in group dict {group_dict}")
+            # print(".")
             continue
 
         if annotation.attrib["Type"] == "Dot":
@@ -86,12 +88,10 @@ def get_group_members(xml_root, group_dict, verbose=False) -> dict:
 
         elif annotation.attrib["Type"] == "Rectangle":
             coords = annotation.findall("./Coordinates/Coordinate")
-
             vertices = [
                 (float(coord.attrib["X"]), float(coord.attrib["Y"])) for coord in coords
             ]
             xs, ys = zip(*vertices)
-
             rect = Rectangle(
                 group=group_dict[class_name],
                 name=annotation.attrib["Name"],
@@ -103,16 +103,16 @@ def get_group_members(xml_root, group_dict, verbose=False) -> dict:
             )
             if verbose:
                 print(f"Rectangle: {rect.centeroid()}")
-
         else:
             assert False
 
     return group_dict
 
 
-def get_images_for_group(slide, group, width_px, height_px, wsi_level):
+def get_images_for_group(slide, group, group_bbox_size, wsi_level, target_size=None):
 
     images = []
+    centers = []
     downsample_ratio = (
         slide.level_dimensions()[0] / slide.level_dimensions(level=wsi_level)[0]
     )
@@ -126,7 +126,7 @@ def get_images_for_group(slide, group, width_px, height_px, wsi_level):
         else:
             assert False
 
-        base_size = (width_px, height_px)
+        base_size = group_bbox_size
 
         x_min, y_min = (pos - size / 2 for pos, size in zip(center, base_size))
         x_max, y_max = (pos + size / 2 for pos, size in zip(center, base_size))
@@ -147,36 +147,95 @@ def get_images_for_group(slide, group, width_px, height_px, wsi_level):
             level=wsi_level,
         ).image
 
-        images.append(image)
+        if target_size is not None:
+            tile = Image.new("RGB", target_size, (0, 0, 0))
 
-    return images
+            left, top = (
+                (tgt_px - img_px) // 2 for tgt_px, img_px in zip(target_size, base_size)
+            )
+
+            # print("target=", target_size, " bbox=", bbox.size, " left=", left, " top=", top)
+            tile.paste(image, (left, top))
+
+            images.append(tile)
+        else:
+            images.append(image)
+        centers.append(center)
+
+    print(f"[get_images_for_group] {group.name}: ", len(images))
+
+    return images, centers
+
+
+def get_regions(xml_root):
+
+    roi = []
+
+    for region in xml_root.findall(f'./Annotations/Annotation[@PartOfGroup="Obszary"]'):
+        coords = region.findall("./Coordinates/Coordinate")
+        vertices = [
+            (float(coord.attrib["X"]), float(coord.attrib["Y"])) for coord in coords
+        ]
+        xs, ys = zip(*vertices)
+
+        rect = Rectangle(
+            group=None,
+            name=region.attrib["Name"],
+            color=region.attrib["Color"],
+            x_max=max(xs),
+            x_min=min(xs),
+            y_max=max(ys),
+            y_min=min(ys),
+        )
+        roi.append(rect)
+
+    return roi
 
 
 def get_tile_images_from_wsi(
     xml_path: Path,
     mrxs_path: Path,
     selected_classes: set,
-    bbox_size: tuple[int],
+    bbox_sizes: dict,
+    tile_size=None,
     wsi_level=0,
+    show_n=0,
 ):
 
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
     annotation_groups = get_annotation_groups(root, selected_classes)
-    # print(annotation_groups)
     annotation_groups = get_group_members(root, annotation_groups)
 
     slide = Slide(mrxs_path, "")
 
     all_images = []
-    images = []
-    for group in annotation_groups.values():
-        images = get_images_for_group(slide, group, *bbox_size, wsi_level=wsi_level)
-        all_images += images
+    all_centers = []
+    all_classes = []
 
-    return images
-    # return []
+    for groupname, group in annotation_groups.items():
+
+        print(len(group.members))
+
+        images, centers = get_images_for_group(
+            slide,
+            group,
+            group_bbox_size=bbox_sizes[groupname],
+            wsi_level=wsi_level,
+            target_size=tile_size,
+        )
+
+        if isinstance(show_n, int) and show_n > 0:
+            display(images[0])
+            show_n = show_n - 1
+
+        all_images += images
+        all_centers += centers
+        all_classes += [groupname for _ in images]
+
+    print("[get_tile_images_from_wsi] WSI images: ", len(all_images))
+    return all_images, all_centers, all_classes
 
 
 def save_tile_images_from_wsi(
@@ -189,6 +248,7 @@ def save_tile_images_from_wsi(
     infix="TILE",
     ext="png",
     show_n=None,
+    verbose=True,
 ):
 
     xml_path = src_path / Path(f"{wsi_name}.xml")
@@ -198,13 +258,66 @@ def save_tile_images_from_wsi(
         xml_path, mrxs_path, selected_classes, bbox_size, wsi_level
     )
 
+    n_images = 0
     for i, image in enumerate(images):
         filename = dest_path / Path(f"{wsi_name}_{infix}_{i}.{ext}")
         image.save(filename)
 
+        if verbose:
+            n_images = n_images + 1
         if isinstance(show_n, int) and show_n > 0:
             display(image)
             show_n = show_n - 1
+
+    if verbose:
+        print(wsi_name, ": ", n_images, " saved")
+
+
+def assign_tiles_to_rois(rois, centers):
+
+    roi_ids = []
+    for center in centers:
+        center_assigned = False
+        for i, roi in enumerate(rois):
+            if center in roi:
+                roi_ids.append(i)
+                center_assigned = True
+                break
+        if not center_assigned:
+            roi_ids.append(None)
+
+    return roi_ids
+
+
+def save_image_batch(
+    out_dir,
+    section,
+    wsi_name,
+    images,
+    roiid_assignment,
+    classes,
+    infix="tile",
+    ext="png",
+    all_classnames=None,
+    class_shortcodes=None,
+):
+
+    if all_classnames is not None and len(all_classnames) > 0:
+        for classname in all_classnames:
+            out_path = Path(out_dir, section, classname)
+            out_path.mkdir(parents=True, exist_ok=True)
+
+    print(f"ROIs: {len(roiid_assignment)}")
+    print(f"IMGs: {len(images)}")
+    print(f"CLASSes: {len(classes)}")
+
+    placeholder = "x"
+    for i, (img, roiid, classname) in enumerate(zip(images, roiid_assignment, classes)):
+        class_code = class_shortcodes[classname]
+        filename = f"{wsi_name}_ROI_{roiid if roiid is not None else placeholder}_{infix}_{i}_{class_code}.{ext}"
+
+        file_path = Path(out_dir, section, classname, filename)
+        img.save(file_path)
 
 
 def save_tile_images(
@@ -213,25 +326,51 @@ def save_tile_images(
     data_dir,
     out_dir,
     selected_classes,
-    bbox_size,
+    class_shortcodes,
+    bbox_sizes,
+    tile_size=None,
     show_n=None,
 ):
-    src_path = Path(data_dir)
+    # src_path = Path(data_dir)
     sections = ["test", "train"]
-    wsi_names = {"test": train_wsi_names, "train": test_wsi_names}
+    wsi_names = {"train": train_wsi_names, "test": test_wsi_names}
 
-    for section in sections:
-        for class_name in selected_classes:
-            section_dest_path = Path(out_dir, section, class_name)
-            section_dest_path.mkdir(exist_ok=True, parents=True)
+    for section in sections:  # train, test
 
-            for wsi_name in wsi_names[section]:
-                print(f"{wsi_name} {section} class: {class_name}")
-                save_tile_images_from_wsi(
-                    wsi_name,
-                    src_path,
-                    section_dest_path,
-                    selected_classes=[class_name, class_name.lower()],
-                    bbox_size=bbox_size,
-                    show_n=show_n,
-                )
+        for wsi in wsi_names[section]:
+
+            xml_pathname = Path(data_dir, f"{wsi}.xml")
+            mrxs_pathname = Path(data_dir, f"{wsi}.mrxs")
+
+            tree = ET.parse(xml_pathname)
+            root = tree.getroot()
+
+            rois = sorted(
+                get_regions(root), key=lambda r: (r.x_min, r.x_max, r.y_min, r.y_max)
+            )
+
+            images, centers, classes = get_tile_images_from_wsi(
+                xml_pathname,
+                mrxs_pathname,
+                selected_classes,
+                bbox_sizes,
+                tile_size,
+                wsi_level=0,
+                show_n=show_n,
+            )
+
+            roiid_assignment = assign_tiles_to_rois(rois, centers)
+
+            save_image_batch(
+                out_dir,
+                section,
+                wsi,
+                images,
+                roiid_assignment,
+                classes,
+                all_classnames=selected_classes,
+                class_shortcodes=class_shortcodes,
+            )
+            print(
+                f"{wsi} ({section}): {len(roiid_assignment)} roi_id, {len(images)} images"
+            )

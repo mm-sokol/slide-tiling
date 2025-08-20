@@ -8,3 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+data/
+yolo_dataset/
+5_count_annotations.ipynb
+6_fast_sam_2.ipynb
+7_xml_parser.ipynb
