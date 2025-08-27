@@ -45,7 +45,8 @@ def read_rectangles(xml_path):
 
             group = Group(**group_data)
 
-    assert group is not None
+    if group is None:
+        group = Group(name="None", color="#F4FA58", group=None)
 
     for child in root[0]:
         if "Type" in child.attrib and child.attrib["Type"] == "Rectangle":
@@ -115,8 +116,9 @@ def save_images_from_slide(slide_name, images, dest_dir, group, infix="ROI", ext
     assert len(images) == len(group.members)
 
     for i, (image, rect) in enumerate(zip(images, group.members)):
-        filename = Path(dest_dir, f"{slide_name}_{infix}_{i}.{ext}")
-        image.save(filename)
+        filename = f"{slide_name}_{infix}_{i}.{ext}"
+        file_path = Path(dest_dir, filename)
+        image.save(file_path)
 
         info = {
             "slide": slide_name,
@@ -124,6 +126,8 @@ def save_images_from_slide(slide_name, images, dest_dir, group, infix="ROI", ext
             "x_min": rect.x_min,
             "y_min": rect.y_min,
             "path": filename,
+            "width": rect.x_max - rect.x_min,
+            "height": rect.y_max - rect.y_min,
         }
         print(info)
         meta_data.append(info)
@@ -163,7 +167,7 @@ def save_all_patches(data_dir, out_dir):
     df = DataFrame(data=data)
     print(df)
 
-    out_datafile = Path(out_dir, "patches.csv")
+    out_datafile = Path(out_dir, "ROI_description.csv")
     df.to_csv(out_datafile)
 
     return df
