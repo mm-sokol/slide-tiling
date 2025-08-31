@@ -1,4 +1,5 @@
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 
 def get_info_from_filename(txt_filename):
@@ -115,3 +116,64 @@ def add_annotation_groups(xml_groups_root, added_groups, annotation_colours):
         }
         new_group = ET.Element("AnnotationGroup", attrib=new_group_attribs)
         xml_groups_root.append(new_group)
+
+
+def update_xmls(
+    xml_src_dir,
+    xml_out_dir,
+    txt_files,
+    backup_files,
+    annotation_groups,
+    annotation_colours,
+    all_colour,
+    verbose=False,
+):
+    for txt_file in txt_files:
+        info = get_info_from_filename(txt_file.name)
+
+        txt_contents = get_coord_txt_content(txt_file)
+
+        xml_filename = f"{info['wsi']}.xml"
+        xml_filepath = Path(xml_src_dir, xml_filename)
+
+        tree = ET.parse(xml_filepath)
+        root = tree.getroot()
+
+        if verbose:
+            print(f"WSI: {info['wsi']}:")
+            print(" - Before: ", len(root.findall(".//Annotation")), "annotations")
+
+        print(txt_contents)
+
+        next_annotation_number = get_next_annotation_number(root)
+
+        added_groups = set()
+
+        for annotation_info in txt_contents:
+
+            add_rectangle_annotation(
+                root.find(".//Annotations"),
+                annotation_info,
+                next_annotation_number,
+                annotation_groups,
+                all_colour,
+            )
+            added_groups.add(annotation_groups[annotation_info["cls_id"]])
+            next_annotation_number += 1
+
+        add_annotation_groups(
+            root.find(".//AnnotationGroups"), added_groups, annotation_colours
+        )
+
+        if verbose:
+            print(" - After: ", len(root.findall(".//Annotation")), "annotations")
+
+        ET.indent(tree, space="  ")
+
+        if backup_files:
+            xml_bck_filename = f"{info['wsi']}_bck.xml"
+            xml_bck_filepath = Path(xml_src_dir, xml_bck_filename)
+            xml_filepath.rename(xml_bck_filepath)
+        tree.write(
+            f"{xml_out_dir}//{info['wsi']}.xml", encoding="utf-8", xml_declaration=True
+        )
