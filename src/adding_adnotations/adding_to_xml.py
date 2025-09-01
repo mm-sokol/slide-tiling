@@ -37,7 +37,7 @@ def get_coord_txt_content(txt_file, column_names=None):
             elems = line.split()
             assert len(elems) == len(txt_attributes)
             for elem, attr in zip(elems, txt_attributes):
-                annotation_info[attr] = int(elem)
+                annotation_info[attr] = float(elem)
             contents.append(annotation_info)
 
     return contents
@@ -60,6 +60,7 @@ def add_rectangle_annotation(
     xml_annotations_root,
     annotation_info,
     next_annotation_number,
+    roi_series,
     annotation_groups,
     colour,
 ):
@@ -74,10 +75,29 @@ def add_rectangle_annotation(
     new_annotation = ET.Element("Annotation", attrib=new_annotation_attrib)
     new_coords = ET.Element("Coordinates")
 
-    x_min = annotation_info["x_center"] - annotation_info["width"] // 2
-    x_max = annotation_info["x_center"] + annotation_info["width"] // 2
-    y_min = annotation_info["y_center"] - annotation_info["height"] // 2
-    y_max = annotation_info["y_center"] + annotation_info["height"] // 2
+    print(annotation_info)
+
+    # roi_id = annotation_info["roi_id"]
+
+    print("len: ", len(roi_series))
+
+    x_center = annotation_info["x_center"] * roi_series.width + roi_series.x_min
+    y_center = annotation_info["y_center"] * roi_series.height + roi_series.y_min
+    annotation_width = annotation_info["width"] * roi_series.width
+    annotation_height = annotation_info["height"] * roi_series.height
+
+    x_min = x_center - annotation_width / 2
+    x_max = x_center + annotation_width / 2
+
+    y_min = y_center - annotation_height / 2
+    y_max = y_center + annotation_height / 2
+
+    print("ROI width: ", roi_series.width)
+
+    # x_min = annotation_info["x_center"] - annotation_info["width"] // 2
+    # x_max = annotation_info["x_center"] + annotation_info["width"] // 2
+    # y_min = annotation_info["y_center"] - annotation_info["height"] // 2
+    # y_max = annotation_info["y_center"] + annotation_info["height"] // 2
 
     coord_attribs_0 = {"Order": "0", "X": str(x_min), "Y": str(y_min)}
     coord_0 = ET.Element("Coordinate", attrib=coord_attribs_0)
@@ -122,6 +142,7 @@ def update_xmls(
     xml_src_dir,
     xml_out_dir,
     txt_files,
+    roi_df,
     backup_files,
     annotation_groups,
     annotation_colours,
@@ -151,10 +172,21 @@ def update_xmls(
 
         for annotation_info in txt_contents:
 
+            # print(roi_df)
+            print("Info: ", info)
+
+            roi_series = roi_df[
+                (roi_df["slide"] == info["wsi"])
+                & (roi_df["patch_id"] == info["roi_id"])
+            ]
+
+            print(roi_series)
+
             add_rectangle_annotation(
                 root.find(".//Annotations"),
                 annotation_info,
                 next_annotation_number,
+                roi_series,
                 annotation_groups,
                 all_colour,
             )

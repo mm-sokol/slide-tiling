@@ -16,8 +16,11 @@ class Rectangle(AnnotationObject):
         y_center = (self.y_max + self.y_min) / 2
         return x_center, y_center
 
+    def bbox_dims(self):
+        return (self.x_max - self.x_min, self.y_max - self.y_min)
+
     def __contains__(self, point: tuple[float]):
-        
+
         if isinstance(point, tuple):
             if (
                 point[0] <= self.x_max
@@ -37,3 +40,12 @@ class Rectangle(AnnotationObject):
                 return True
 
         return False
+
+    def vertices(self):
+
+        return [
+            (self.x_min, self.y_min),
+            (self.x_max, self.y_min),
+            (self.x_min, self.y_max),
+            (self.x_max, self.y_max),
+        ]
