@@ -47,11 +47,11 @@ def get_annotation_groups(xml_root, selected_group_names=None) -> dict:
         group_dict = {gr.name: gr for gr in groups if gr.name in selected_group_names}
     else:
         group_dict = {gr.name: gr for gr in groups}
-        
+
     return group_dict
 
 
-def get_group_members(xml_root, group_dict, verbose=True) -> dict:
+def get_group_members(xml_root, group_dict, verbose=False) -> dict:
 
     for annotation in xml_root.findall(f"./Annotations/Annotation"):
 
@@ -170,6 +170,7 @@ def get_images_for_group(
             roi_id, annotation_roi = assign_to_roi(rois=rois, member=member)
             if roi_id is None:
                 print(f"Problem with: {slide}, {member}")
+                continue
             annotation_rois.append((roi_id, annotation_roi))
             x_min = max(x_min, annotation_roi.x_min)
             x_max = min(x_max, annotation_roi.x_max)
@@ -257,7 +258,6 @@ def get_tile_images_from_wsi(
     root = tree.getroot()
 
     annotation_groups = get_annotation_groups(root, selected_classes)
-
     annotation_groups = get_group_members(xml_root=root, group_dict=annotation_groups)
 
     slide = Slide(mrxs_path, "")
@@ -269,7 +269,7 @@ def get_tile_images_from_wsi(
     all_annot_rois = []
 
     for groupname, group in annotation_groups.items():
-
+        # print("[get_tile_images_from_wsi] Group name: ", groupname)
         group_size = (
             bbox_sizes[groupname]
             if bbox_sizes is not None and groupname in bbox_sizes
