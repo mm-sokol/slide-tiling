@@ -1,0 +1,82 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ASAP_Annotations>
+  <Annotations>
+    <Annotation Name="Annotation 0" Type="Rectangle" PartOfGroup="None" Color="#F4FA58">
+      <Coordinates>
+        <Coordinate Order="0" X="38942.5938" Y="119854.734" />
+        <Coordinate Order="1" X="40355.3359" Y="119854.734" />
+        <Coordinate Order="2" X="40355.3359" Y="120714.031" />
+        <Coordinate Order="3" X="38942.5938" Y="120714.031" />
+      </Coordinates>
+    </Annotation>
+    <Annotation Name="Annotation 1" Type="Rectangle" PartOfGroup="None" Color="#F4FA58">
+      <Coordinates>
+        <Coordinate Order="0" X="39745.5" Y="114856.273" />
+        <Coordinate Order="1" X="41991.0586" Y="114856.273" />
+        <Coordinate Order="2" X="41991.0586" Y="116621.297" />
+        <Coordinate Order="3" X="39745.5" Y="116621.297" />
+      </Coordinates>
+    </Annotation>
+    <Annotation Name="Annotation 2" Type="Rectangle" PartOfGroup="None" Color="#F4FA58">
+      <Coordinates>
+        <Coordinate Order="0" X="36545.9023" Y="111421.078" />
+        <Coordinate Order="1" X="38688.6133" Y="111421.078" />
+        <Coordinate Order="2" X="38688.6133" Y="113204.461" />
+        <Coordinate Order="3" X="36545.9023" Y="113204.461" />
+      </Coordinates>
+    </Annotation>
+    <Annotation Name="Annotation 3" Type="Rectangle" PartOfGroup="None" Color="#F4FA58">
+      <Coordinates>
+        <Coordinate Order="0" X="54243.6406" Y="171325.781" />
+        <Coordinate Order="1" X="54656.9141" Y="171325.781" />
+        <Coordinate Order="2" X="54656.9141" Y="171668.859" />
+        <Coordinate Order="3" X="54243.6406" Y="171668.859" />
+      </Coordinates>
+    </Annotation>
+    <Annotation Name="Annotation 4" Type="Rectangle" PartOfGroup="None" Color="#F4FA58">
+      <Coordinates>
+        <Coordinate Order="0" X="53945.3867" Y="170902.75" />
+        <Coordinate Order="1" X="54491.2109" Y="170902.75" />
+        <Coordinate Order="2" X="54491.2109" Y="171300.422" />
+        <Coordinate Order="3" X="53945.3867" Y="171300.422" />
+      </Coordinates>
+    </Annotation>
+    <Annotation Name="Annotation 5" Type="Rectangle" PartOfGroup="None" Color="#F4FA58">
+      <Coordinates>
+        <Coordinate Order="0" X="54717.3438" Y="171536.328" />
+        <Coordinate Order="1" X="55192.9961" Y="171536.328" />
+        <Coordinate Order="2" X="55192.9961" Y="171996.375" />
+        <Coordinate Order="3" X="54717.3438" Y="171996.375" />
+      </Coordinates>
+    </Annotation>
+    <Annotation Name="Annotation 6" Type="Rectangle" PartOfGroup="None" Color="#F4FA58">
+      <Coordinates>
+        <Coordinate Order="0" X="57164.7227" Y="166854.406" />
+        <Coordinate Order="1" X="58105.1562" Y="166854.406" />
+        <Coordinate Order="2" X="58105.1562" Y="167774.031" />
+        <Coordinate Order="3" X="57164.7227" Y="167774.031" />
+      </Coordinates>
+    </Annotation>
+    <Annotation Name="Annotation 7" Type="Rectangle" PartOfGroup="None" Color="#F4FA58">
+      <Coordinates>
+        <Coordinate Order="0" X="48140.4727" Y="154404.953" />
+        <Coordinate Order="1" X="48750.1914" Y="154404.953" />
+        <Coordinate Order="2" X="48750.1914" Y="155123.062" />
+        <Coordinate Order="3" X="48140.4727" Y="155123.062" />
+      </Coordinates>
+    </Annotation>
+    <Annotation Name="Annotation 8" Type="Dot" PartOfGroup="None" Color="#F4FA58">
+      <Coordinates>
+        <Coordinate Order="0" X="48811.54934" Y="155322.04548" />
+      </Coordinates>
+    </Annotation>
+    <Annotation Name="Annotation 9" Type="Dot" PartOfGroup="None" Color="#F4FA58">
+      <Coordinates>
+        <Coordinate Order="0" X="48897.34326" Y="155281.06772000002" />
+      </Coordinates>
+    </Annotation>
+  </Annotations>
+  <AnnotationGroups>
+    <AnnotationGroup Name="Unknown" PartOfGroup="None" Color="#46cc95" />
+  </AnnotationGroups>
+</ASAP_Annotations>
