@@ -50,6 +50,35 @@ def get_annotation_groups(xml_root, selected_group_names=None) -> dict:
 
     return group_dict
 
+def get_rois(xml_root):
+
+    roi = []
+    i = 0
+    for region in xml_root[0]:
+        #     if "Type" in child.attrib and child.attrib["Type"] == "Rectangle":
+        # for region in xml_root.findall(f"./Annotations/Annotation"):
+        if region.attrib.get("PartOfGroup") not in ("Obszary", "Obszary "):
+            continue
+
+        coords = region.findall("./Coordinates/Coordinate")
+        vertices = [
+            (float(coord.attrib["X"]), float(coord.attrib["Y"])) for coord in coords
+        ]
+        xs, ys = zip(*vertices)
+
+        rect = Rectangle(
+            group=None,
+            name=region.attrib["Name"],
+            color=region.attrib["Color"],
+            x_max=max(xs),
+            x_min=min(xs),
+            y_max=max(ys),
+            y_min=min(ys),
+        )
+        roi.append((i, rect))
+        i += 1
+
+    return roi
 
 def get_group_members(xml_root, group_dict, verbose=False) -> dict:
 
@@ -64,6 +93,12 @@ def get_group_members(xml_root, group_dict, verbose=False) -> dict:
 
         if annotation.attrib["Type"] == "Dot":
             coord = annotation.find("./Coordinates/Coordinate")
+            
+            if coord is None:
+                print(class_name, annotation.attrib)
+                x = annotation.findall("./Coordinates/Coordinate")
+                print(x)
+            
             point = Point(
                 group=group_dict[class_name],
                 name=annotation.attrib["Name"],
@@ -151,6 +186,7 @@ def get_images_for_group(
         slide.level_dimensions()[0] / slide.level_dimensions(level=wsi_level)[0]
     )
 
+    print("[get_images_for_group] Number in group: ", len(group.members))
     for member in group.members:
 
         if isinstance(member, Polygon) or isinstance(member, Rectangle):
@@ -168,7 +204,7 @@ def get_images_for_group(
 
         if rois is not None:
             roi_id, annotation_roi = assign_to_roi(rois=rois, member=member)
-            if roi_id is None:
+            if roi_id is None or roi_id<0:
                 print(f"Problem with: {slide}, {member}")
                 continue
             annotation_rois.append((roi_id, annotation_roi))
@@ -212,35 +248,7 @@ def get_images_for_group(
     return images, centers, bbox_dims, annotation_rois
 
 
-def get_regions(xml_root):
 
-    roi = []
-    i = 0
-    for region in xml_root[0]:
-        #     if "Type" in child.attrib and child.attrib["Type"] == "Rectangle":
-        # for region in xml_root.findall(f"./Annotations/Annotation"):
-        if region.attrib.get("PartOfGroup") not in ("Obszary", "Obszary "):
-            continue
-
-        coords = region.findall("./Coordinates/Coordinate")
-        vertices = [
-            (float(coord.attrib["X"]), float(coord.attrib["Y"])) for coord in coords
-        ]
-        xs, ys = zip(*vertices)
-
-        rect = Rectangle(
-            group=None,
-            name=region.attrib["Name"],
-            color=region.attrib["Color"],
-            x_max=max(xs),
-            x_min=min(xs),
-            y_max=max(ys),
-            y_min=min(ys),
-        )
-        roi.append((i, rect))
-        i += 1
-
-    return roi
 
 
 def get_tile_images_from_wsi(
@@ -257,6 +265,7 @@ def get_tile_images_from_wsi(
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
+    print(xml_path)
     annotation_groups = get_annotation_groups(root, selected_classes)
     annotation_groups = get_group_members(xml_root=root, group_dict=annotation_groups)
 
@@ -345,9 +354,14 @@ def euc_dist_2d(a, b, dtype=float):
 
 def assign_to_roi(rois, member):
 
+    print(len(rois))
+    print("[assign_to_rois] Member: ", member)
+    
     for roi_id, roi in rois:
+        
         if isinstance(member, Point):
             if member in roi:
+                print("[assign_to_rois] ROI ASSIGNED: ", roi_id)
                 return roi_id, roi
         elif isinstance(member, Polygon):
             for point in member.vertices:
@@ -360,8 +374,8 @@ def assign_to_roi(rois, member):
         else:
             assert False
 
-    print(f"No ROI assigned to {member}")
-    return None, None
+    print(f"No ROI assigned to {type(member)} {isinstance(member, Point)} {member}")
+    return (None, None)
 
 
 def assign_tiles_to_rois(rois, centers, option=ROIAssignmentOption.CENTER_WITHIN_ROI):
@@ -370,29 +384,29 @@ def assign_tiles_to_rois(rois, centers, option=ROIAssignmentOption.CENTER_WITHIN
     if option == ROIAssignmentOption.CENTER_WITHIN_ROI:
         for center in centers:
             center_assigned = False
-            for i, roi in enumerate(rois):
+            for i, roi_tuple in enumerate(rois):
+                _, roi = roi_tuple
                 if center in roi:
-                    roi_ids.append(i)
+                    roi_ids.append(roi_tuple)
                     center_assigned = True
                     break
             if not center_assigned:
-
                 roi_ids.append(None)
 
     elif option == ROIAssignmentOption.MIN_CENTER_DIST:
         for center in centers:
             min_dist = 1000000
-            roi_assigned = None
+            roi_tuple_assigned = None
             for i, roi_tuple in enumerate(rois):
                 roi_id, roi = roi_tuple
                 roi_center = ((roi.x_max + roi.x_min) / 2, (roi.y_min + roi.y_max) / 2)
                 dist = euc_dist_2d(roi_center, center)
                 if dist < min_dist:
                     min_dist = dist
-                    roi_assigned = i
-            roi_ids.append(roi_assigned)
+                    roi_tuple_assigned = roi_tuple
+            roi_ids.append(roi_tuple_assigned)
 
-            if roi_assigned is None:
+            if roi_tuple_assigned is None:
 
                 raise IndexError("No ROI assigned.")
     return roi_ids
@@ -419,10 +433,16 @@ def save_image_batch(
     print(f"ROIs: {len(roiid_assignment)}")
     print(f"IMGs: {len(images)}")
     print(f"CLASSes: {len(classes)}")
+    
+    # print(roiid_assignment)
 
     placeholder = "x"
-    for i, (img, roiid, classname) in enumerate(zip(images, roiid_assignment, classes)):
+    for i, (img, roi_tuple, classname) in enumerate(zip(images, roiid_assignment, classes)):
         class_code = class_shortcodes[classname]
+        
+        # print(roiid_assignment)
+        roiid = roi_tuple[0]
+        
         filename = f"{wsi_name}_ROI_{roiid if roiid is not None else placeholder}_{infix}_{i}_{class_code}.{ext}"
 
         file_path = Path(out_dir, section, classname, filename)
@@ -454,6 +474,9 @@ def save_yolo_dataset_desc(
         roiid, roi = roi_tuple
         roi_w = abs(roi.x_max - roi.x_min)
         roi_h = abs(roi.y_max - roi.y_min)
+        
+        if roi_w < 0.0001 or roi_h < 0.0001:
+            raise ValueError(f"Expected roi dimensions w: {roi_w}, h: {roi_h}")
 
         img_w_norm, img_h_norm = bbox[0] / roi_w, bbox[1] / roi_h
 
@@ -509,36 +532,41 @@ def save_tile_images(
             tree = ET.parse(xml_pathname)
             root = tree.getroot()
 
-            rois = sorted(
-                get_regions(root), key=lambda r: (r.x_min, r.x_max, r.y_min, r.y_max)
-            )
-
-            images, centers, classes, _, _ = get_tile_images_from_wsi(
+            # rois = sorted(
+            #     get_rois(root), key=lambda r: (r.x_min, r.x_max, r.y_min, r.y_max)
+            # )
+            
+            rois = get_rois(root)
+            # print('y')
+            images, centers, classes, bbox_dims, annot_rois = get_tile_images_from_wsi(
                 xml_pathname,
                 mrxs_pathname,
                 selected_classes,
                 bbox_sizes,
                 tile_size,
+                rois,
                 wsi_level=0,
                 show_n=show_n,
             )
 
-            roiid_assignment = assign_tiles_to_rois(rois, centers)
-
+            # roiid_assignment = assign_tiles_to_rois(rois, centers)
+            # print('x')
             save_image_batch(
                 out_dir,
                 section,
                 wsi,
                 images,
-                roiid_assignment,
+                annot_rois,
                 classes,
                 all_classnames=selected_classes,
                 class_shortcodes=class_shortcodes,
             )
-
+            # print('a')
             print(
-                f"{wsi} ({section}): {len(roiid_assignment)} roi_id, {len(images)} images"
+                f"{wsi} ({section}): {len(annot_rois)} roi_id, {len(images)} images"
             )
+            # print(annot_rois)
+            # break
 
 
 def save_yolo_dataset(
@@ -559,6 +587,8 @@ def save_yolo_dataset(
     for section in sections:  # train, test
 
         for wsi in wsi_names[section]:
+            
+            print(wsi)
 
             xml_pathname = Path(data_dir, f"{wsi}.xml")
             mrxs_pathname = Path(data_dir, f"{wsi}.mrxs")
@@ -567,9 +597,13 @@ def save_yolo_dataset(
             root = tree.getroot()
 
             # rois = sorted(
-            #     get_regions(root), key=lambda r: (r.x_min, r.x_max, r.y_min, r.y_max)
+            #     get_rois(root), key=lambda r: (r.x_min, r.x_max, r.y_min, r.y_max)
             # )
-            rois = get_regions(root)
+            rois = get_rois(root)
+            
+            for i, r in rois:
+                print(f"{i} ", end="")
+            print("")
 
             images, centers, classes, bbox_dims, annot_rois = get_tile_images_from_wsi(
                 xml_pathname,
@@ -581,10 +615,13 @@ def save_yolo_dataset(
                 wsi_level=0,
                 show_n=show_n,
             )
+            
+            for id, roi in annot_rois:
+                print(f"ROI {id} --> ", roi)
 
-            # roiid_assignment = assign_tiles_to_rois(
-            #     rois, centers, ROIAssignmentOption.MIN_CENTER_DIST
-            # )
+            roiid_assignment = assign_tiles_to_rois(
+                rois, centers, ROIAssignmentOption.MIN_CENTER_DIST
+            )
 
             save_yolo_dataset_desc(
                 out_dir,
@@ -592,8 +629,8 @@ def save_yolo_dataset(
                 images,
                 centers,
                 classes,
-                annot_rois,
-                # roiid_assignment,
+                # annot_rois,
+                roiid_assignment,
                 class_map=class_map,
                 bbox_dims=bbox_dims,
                 wsi=wsi,

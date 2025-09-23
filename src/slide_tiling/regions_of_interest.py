@@ -122,7 +122,7 @@ def save_images_from_slide(slide_name, images, dest_dir, group, infix="ROI", ext
 
         info = {
             "slide": slide_name,
-            "patch_id": i,
+            "roi_id": i,
             "x_min": rect.x_min,
             "y_min": rect.y_min,
             "path": filename,
@@ -167,7 +167,7 @@ def save_all_patches(data_dir, out_dir):
     df = DataFrame(data=data)
     print(df)
 
-    out_datafile = Path(out_dir, "ROI_description.csv")
-    df.to_csv(out_datafile)
+    out_datafile = Path(out_dir, f"ROI_description.csv")
+    df.to_csv(out_datafile, index=False)
 
     return df

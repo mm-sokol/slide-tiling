@@ -15,7 +15,7 @@ class AnnotationObject(abc.ABC):
     def __post_init__(self) -> None:
         if self.group:
             self.group.add(self)
-            print("Here")
+            # print("Here")
 
     # def __str__(self):
     #     return f"name={self.name}, color={self.color}, group={self.group}"
