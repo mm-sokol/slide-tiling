@@ -238,7 +238,6 @@ def get_images_for_group(
 
             #
             tile.paste(image, (left, top))
-
             images.append(tile)
         else:
             images.append(image)
